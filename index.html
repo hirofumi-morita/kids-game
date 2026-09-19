@@ -191,7 +191,7 @@
     <span class="chip"><kbd>K</kbd> こうげき</span>
     <span class="chip"><kbd>E</kbd> しらべる・ドアに はいる</span>
     <span class="chip"><kbd>C</kbd> へんしん（<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>で えらぶ）</span>
-    <span class="chip">そらで <kbd>スペース</kbd> おしっぱなし＝スカートで とぶ</span>
+    <span class="chip">そらで もう1かい <kbd>スペース</kbd>＝スカートで とぶ</span>
     <span class="chip">水の中では <kbd>スペース</kbd> おしっぱなしで すすむ</span>
     <span class="chip"><kbd>R</kbd> やりなおし</span>
     <button class="sound" id="sound" type="button">おと：オン</button>
@@ -199,7 +199,7 @@
 
   <footer>
     <b>おんなのこ</b>：かさを ふって てきを たおす。そらに いるときは <b>スカートが ふわっと ひろがって</b> ゆっくり おちるよ。
-    そらで <kbd>スペース</kbd> を <b>おしっぱなし</b>にすると スカートで <b>じどうで とべる</b>（れんだ しなくて いいよ）。
+    ジャンプしたあと そらで <b>もう1かい</b> <kbd>スペース</kbd> を おして <b>おしっぱなし</b>にすると、スカートで <b>じどうで とべる</b>（れんだ しなくて いいよ）。
     おちながら <kbd>E</kbd> を おすと かさも ひらいて もっと ゆっくり おちる。<br>
     <b>ネコ</b>：はやく はしれて 2かい ジャンプできる。からだが 小さいので <b>ネコしか とおれない あな</b>を とおれる。
     かべに むかって あるくと <b>かべに つかまって、スペースで のぼれる</b>よ。<br>
@@ -1201,14 +1201,17 @@
             vx:(Math.random() - 0.5) * 3.4, vy:Math.random() * 1.4, life:18 });
       }
     }
-    /* おんなのこ：そらで スペースを おしっぱなしに していれば、
-       スカートが ふくらんで じどうで とびつづける（れんだ しなくて いい） */
-    if (p.form === 'girl' && keys.jump && !p.onGround && !p.pound && !inWater &&
-        !clinging && p.flapCd <= 0 && p.vy > -1.5){
-      skirtFlap(p);
-      p.buffer = 0;
+    /* おんなのこ：そらで もういちど スペースを おすと とびはじめる。
+       そのまま おしっぱなしに していれば じどうで とびつづける（れんだ しなくて いい）。
+       じめんからの ふつうの ジャンプでは とびはじめない（ボタンを はなしてから おすこと）。 */
+    if (p.flying){
+      if (p.onGround || inWater || clinging || p.pound || !keys.jump || p.form !== 'girl'){
+        p.flying = false;
+      } else if (p.flapCd <= 0){
+        skirtFlap(p);
+        p.buffer = 0;
+      }
     }
-    if (p.onGround || inWater || !keys.jump) p.flying = false;
 
     if (!keys.jump) p.jumpHeld = false;
     if (p.cutable && !p.jumpHeld && p.vy < -4.0) p.vy = -4.0;
@@ -2867,7 +2870,8 @@
     if (state === 'title'){
       panel('にねんせいの だいぼうけん', [
         '← → で あるいて、スペースで ジャンプ、K で こうげき。',
-        'そらで スペースを おしっぱなし → スカートで じどうに とべる！',
+        'そらで もう1かい スペースを おして おしっぱなし →',
+        'スカートが ふくらんで じどうに とべる！',
         'C で へんしん！ ネコは 2かいジャンプと かべのぼり、',
         'タヌキは たいあたりと ヒップドロップで レンガを こわす。',
         'おうちの ドアの まえで E を おすと 中を たんけんできる。',
