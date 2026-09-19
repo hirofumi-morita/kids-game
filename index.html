@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="かさを持った小学2年生の女の子がネコやタヌキに変身し、おうちの中も探検する横スクロールアクションゲーム。">
+<meta name="description" content="かさを持った小学2年生の女の子がネコやタヌキに変身し、おうちの中も探検する横スクロールアクションゲーム。ステージ2は川をおよいで坂をのぼり、ネコでかべをよじのぼる。">
 <style>
   html{ color-scheme: light; }
   body{ margin:0; font: 14px system-ui, sans-serif; }
@@ -165,7 +165,7 @@
 <div class="wrap">
   <header>
     <h1>にねんせいの <span class="mark">だいぼうけん</span></h1>
-    <span class="tag">かさと へんしんで がっこうへ</span>
+    <span class="tag">ステージ1・がっこうへ ／ ステージ2・かわを わたって おうちへ</span>
   </header>
 
   <div class="stage">
@@ -191,15 +191,19 @@
     <span class="chip"><kbd>K</kbd> こうげき</span>
     <span class="chip"><kbd>E</kbd> しらべる・ドアに はいる</span>
     <span class="chip"><kbd>C</kbd> へんしん（<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>で えらぶ）</span>
+    <span class="chip">水の中では <kbd>スペース</kbd> おしっぱなしで すすむ</span>
     <span class="chip"><kbd>R</kbd> やりなおし</span>
     <button class="sound" id="sound" type="button">おと：オン</button>
   </div>
 
   <footer>
     <b>おんなのこ</b>：かさを ふって てきを たおす。おちるとき <kbd>スペース</kbd> おしっぱなしで ふわふわ、れんだで とぶ。<br>
-    <b>ネコ</b>：はやく はしれて 2かい ジャンプできる。からだが 小さいので <b>ネコしか とおれない あな</b>が あるよ。<br>
+    <b>ネコ</b>：はやく はしれて 2かい ジャンプできる。からだが 小さいので <b>ネコしか とおれない あな</b>を とおれる。
+    かべに むかって あるくと <b>かべに つかまって、スペースで のぼれる</b>よ。<br>
     <b>タヌキ</b>：じめんで こうげきすると たいあたり、そらで こうげきすると <b>ヒップドロップ</b>。<b>レンガを こわせる</b>。<br>
-    みちに ある <b>おうちの ドア</b>の まえで <kbd>E</kbd>。中の たんすや ほんだなを しらべると ハナマルが でてくる。かくし部屋も あるよ。
+    みちに ある <b>おうちの ドア</b>の まえで <kbd>E</kbd>。中の たんすや ほんだなを しらべると ハナマルが でてくる。かくし部屋も あるよ。<br>
+    <b>ステージ2</b>は かわや いけを およいで わたり、さかを のぼって おうちを めざす みち。
+    たかい かべは <b>ネコに へんしんして のぼろう</b>。ステージ1を クリアすると つづけて あそべます（タイトルで <kbd>2</kbd> でも スタートできます）。
   </footer>
 </div>
 
@@ -211,6 +215,8 @@
   var W = 960, H = 540;
   var TILE = 36, ROWS = 15, GROUND_ROW = 12;
   var EMPTY = 0, GROUND = 1, PLAT = 2, QUES = 3, USED = 4, BRICK = 5, WALL = 6, FLOOR = 7;
+  var WATER = 8, SLOPE_R = 9, SLOPE_L = 10, SLOPE_FILL = 11;
+  function isSlopeT(t){ return t === SLOPE_R || t === SLOPE_L; }
 
   var cv = document.getElementById('game');
   var ctx = cv.getContext('2d');
@@ -342,6 +348,125 @@
     { x:158, w:4, door:1, tone:'old',   id:'h3', to:['house3','out'], label:'ふるい おうち' }
   ];
 
+
+  /* ================= ステージ2：かわを わたって おうちへ ================= */
+  var S2_COLS = 200;
+  var S2_GROUND = [
+    [0,24,12],[28,40,9],[44,60,12],[61,84,14],[85,140,12],
+    [141,152,14],[153,157,12],[161,168,9],[172,199,12]
+  ];
+  var S2_SLOPES = [
+    [25,11,'r'],[26,10,'r'],[27,9,'r'],
+    [41,9,'l'],[42,10,'l'],[43,11,'l'],
+    [158,11,'r'],[159,10,'r'],[160,9,'r'],
+    [169,9,'l'],[170,10,'l'],[171,11,'l']
+  ];
+  var S2_WATER = [[61,84,12,13],[141,152,12,13]];
+  var S2_BLOCKS = [
+    [6,9,3,1],[11,7,2,1],
+    [16,10,2,1],
+    [20,8,3,1],
+    [31,6,3,1],[36,7,2,1],
+    [46,9,2,1],
+    [55,8,3,1],
+    [63,9,2,1],[70,8,3,1],[77,9,2,1],
+    [88,9,3,1],[92,10,2,1],
+    [95,7,1,5],
+    [100,9,2,1],
+    [112,3,2,9],
+    [116,9,3,1],[121,7,2,1],
+    [127,9,2,1],[132,8,3,1],
+    [143,9,2,1],[149,8,2,1],
+    [155,9,2,1],
+    [163,6,3,1],
+    [174,9,2,1],[179,7,3,1],
+    [185,9,2,1]
+  ];
+  var S2_BRICKS = [[106,9],[106,10],[106,11],[107,9],[107,10],[107,11],[137,11],[138,11]];
+  var S2_QUES = [[9,8],[24,9],[53,8],[54,8],[90,8],[119,9],[157,9],[181,8]];
+  var S2_COINS = [
+    [4,11],[5,11],
+    [6,8],[7,8],[8,8],
+    [11,6],[12,6],
+    [16,9],[17,9],
+    [20,7],[21,7],[22,7],
+    [25,10],[26,9],[27,8],
+    [31,5],[32,5],[33,5],
+    [36,6],[37,6],
+    [41,8],[42,9],[43,10],
+    [46,8],[47,8],
+    [52,11],[53,11],
+    [55,7],[56,7],[57,7],
+    [62,11],[63,8],[64,8],
+    [66,12],[67,13],[68,12],
+    [70,7],[71,7],[72,7],
+    [74,13],[75,12],[76,13],
+    [77,8],[78,8],
+    [81,12],[82,13],
+    [88,8],[89,8],
+    [92,9],[93,9],
+    [95,6],[96,6],
+    [100,8],[101,8],
+    [106,8],[107,8],
+    [110,11],[111,11],
+    [112,2],[113,2],[114,2],[115,2],
+    [116,8],[117,8],[118,8],
+    [121,6],[122,6],
+    [127,8],[128,8],
+    [132,7],[133,7],[134,7],
+    [137,10],[138,10],
+    [142,12],[143,8],[144,8],
+    [146,13],[147,12],[148,13],
+    [149,7],[150,7],
+    [155,8],[156,8],
+    [158,10],[159,9],[160,8],
+    [163,5],[164,5],[165,5],
+    [169,8],[170,9],[171,10],
+    [174,8],[175,8],
+    [179,6],[180,6],[181,6],
+    [185,8],[186,8],
+    [188,11],[189,11]
+  ];
+  var S2_CROWS = [[10,12],[34,9],[50,12],[90,12],[125,12],[165,9],[183,12]];
+  var S2_BEES = [[19,7],[57,7],[130,7],[177,7]];
+  var S2_FISH = [[66,12],[76,13],[146,12]];
+  var S2_CHECKS = [[45,12],[99,12]];
+  var S2_HOUSES = [
+    { x:48, w:4, door:1, top:12, tone:'blue', id:'h4', to:['hut','out'], label:'かわべの こや' }
+  ];
+  var S2_SIGNS = [
+    [103,12,'タヌキで レンガ！'],
+    [109,12,'ネコで かべのぼり！'],
+    [59,12,'この さきは かわ']
+  ];
+
+  /* ================= ステージの まとめ ================= */
+  var STAGE_DEFS = {
+    1: {
+      id:'main', name:'がっこうへの みち', theme:'day', cols:MAIN_COLS,
+      goalX:GOAL_X, goalTop:12, goalKind:'school', goalLabel:'がっこう', buildingX:206,
+      start:[2,12],
+      ground:GROUND_SEGS.map(function(g){ return [g[0], g[1], 12]; }),
+      slopes:[], water:[],
+      blocks:MAIN_BLOCKS, bricks:MAIN_BRICKS, ques:MAIN_QUES, coins:MAIN_COINS,
+      crows:MAIN_CROWS.map(function(x){ return [x, 12]; }),
+      bees:MAIN_BEES, fish:[],
+      checks:MAIN_CHECKS.map(function(x){ return [x, 12]; }),
+      houses:MAIN_HOUSES, signs:[],
+      rooms:['house1','attic','house2','cellar','house3']
+    },
+    2: {
+      id:'main', name:'かわを わたって おうちへ', theme:'river', cols:S2_COLS,
+      goalX:190, goalTop:12, goalKind:'home', goalLabel:'おうち', buildingX:194,
+      start:[2,12],
+      ground:S2_GROUND, slopes:S2_SLOPES, water:S2_WATER,
+      blocks:S2_BLOCKS, bricks:S2_BRICKS, ques:S2_QUES, coins:S2_COINS,
+      crows:S2_CROWS, bees:S2_BEES, fish:S2_FISH,
+      checks:S2_CHECKS, houses:S2_HOUSES, signs:S2_SIGNS,
+      rooms:['hut']
+    }
+  };
+
   /* ================= おうちの 中（へや） ================= */
   /* plats:[x,y,w]  walls/bricks:[x,y,w,h]  coins:[x,y]
      furns:[kind,x,y]  doors:[id,x,y]  marks:[kind,x,y] */
@@ -397,6 +522,17 @@
       doors:[['out',1,11]],
       marks:[['brickhint',13,9]],
       windows:[[9,6],[21,6]]
+    },
+    {
+      id:'hut', name:'かわべの こや', cols:34, ceil:4, floor:12, paper:'#dfe7e0', wood:'#9a7b4d',
+      plats:[[5,9,3],[10,7,2],[16,9,3],[20,10,2]],
+      walls:[[24,6,1,6]],
+      bricks:[],
+      coins:[[6,8],[7,8],[11,6],[17,8],[3,10],[21,9],[26,10],[27,10],[28,8],[31,10],[25,4]],
+      furns:[['T',7,11],['S',13,11],['K',19,11],['X',29,11]],
+      doors:[['out',1,11]],
+      marks:[['climb',24,5]],
+      windows:[[9,6],[21,6]]
     }
   ];
   var ROOM_LINKS = {
@@ -404,7 +540,8 @@
     attic:  { out:['house1','sub'] },
     house2: { out:['main','h2'], sub:['cellar','out'] },
     cellar: { out:['house2','sub'] },
-    house3: { out:['main','h3'] }
+    house3: { out:['main','h3'] },
+    hut:    { out:['main','h4'] }
   };
 
   var FURN = {
@@ -421,46 +558,63 @@
 
   function setT(g, x, y, t){ if (y >= 0 && y < ROWS && x >= 0 && x < g[0].length) g[y][x] = t; }
 
-  function buildMain(){
-    var g = grid2(MAIN_COLS), i, j, x, y;
-    GROUND_SEGS.forEach(function(s){
-      for (x = s[0]; x <= s[1]; x++) for (y = GROUND_ROW; y < ROWS; y++) g[y][x] = GROUND;
+  function buildOutdoor(def){
+    var g = grid2(def.cols), i, j, x, y;
+    def.ground.forEach(function(seg){
+      for (x = seg[0]; x <= seg[1]; x++)
+        for (y = seg[2]; y < ROWS; y++) g[y][x] = GROUND;
     });
-    MAIN_BLOCKS.forEach(function(b){
-      for (i = 0; i < b[2]; i++) for (j = 0; j < b[3]; j++) setT(g, b[0] + i, b[1] + j, PLAT);
+    (def.slopes || []).forEach(function(sl){
+      setT(g, sl[0], sl[1], sl[2] === 'r' ? SLOPE_R : SLOPE_L);
+      for (y = sl[1] + 1; y < ROWS; y++) setT(g, sl[0], y, SLOPE_FILL);
     });
-    MAIN_BRICKS.forEach(function(b){ setT(g, b[0], b[1], BRICK); });
-    MAIN_QUES.forEach(function(q){ setT(g, q[0], q[1], QUES); });
+    (def.water || []).forEach(function(wt){
+      for (x = wt[0]; x <= wt[1]; x++)
+        for (y = wt[2]; y <= wt[3]; y++) setT(g, x, y, WATER);
+    });
+    def.blocks.forEach(function(bk){
+      for (i = 0; i < bk[2]; i++) for (j = 0; j < bk[3]; j++) setT(g, bk[0] + i, bk[1] + j, PLAT);
+    });
+    (def.bricks || []).forEach(function(bk){ setT(g, bk[0], bk[1], BRICK); });
+    (def.ques || []).forEach(function(q){ setT(g, q[0], q[1], QUES); });
 
-    var doors = MAIN_HOUSES.map(function(hs){
-      var dx = (hs.x + hs.door) * TILE;
+    var doors = (def.houses || []).map(function(hs){
+      var dx = (hs.x + hs.door) * TILE, top = hs.top || 12;
       return { id:hs.id, to:hs.to, label:hs.label,
-               x:dx + 4, y:(GROUND_ROW - 2) * TILE, w:TILE - 8, h:TILE * 2, tx:hs.x + hs.door };
+               x:dx + 4, y:(top - 2) * TILE, w:TILE - 8, h:TILE * 2 };
     });
 
     return {
-      id:'main', kind:'outdoor', name:'がっこうへの みち', cols:MAIN_COLS, grid:g,
-      coins: MAIN_COINS.map(function(c){
+      id:'main', kind:'outdoor', name:def.name, cols:def.cols, grid:g, theme:def.theme,
+      goalX:def.goalX, goalTop:def.goalTop, goalKind:def.goalKind,
+      goalLabel:def.goalLabel, buildingX:def.buildingX,
+      coins:def.coins.map(function(c){
         return { x:(c[0] + 0.5) * TILE, y:(c[1] + 0.5) * TILE, got:false, t:Math.random() * 6 };
       }),
-      enemies: buildMainEnemies(),
-      checks: MAIN_CHECKS.map(function(x){
-        return { x:x * TILE, y:(GROUND_ROW - 3) * TILE, on:false };
+      enemies: buildOutdoorEnemies(def),
+      checks:(def.checks || []).map(function(c){
+        return { x:c[0] * TILE, y:(c[1] - 3) * TILE, baseRow:c[1], on:false };
       }),
-      doors: doors, furns: [], marks: [], windows: [], houses: MAIN_HOUSES
+      doors:doors, furns:[], marks:[], windows:[],
+      houses:def.houses || [], signs:def.signs || []
     };
   }
 
-  function buildMainEnemies(){
+  function buildOutdoorEnemies(def){
     var list = [];
-    MAIN_CROWS.forEach(function(x){
-      list.push({ kind:'crow', x:x * TILE + 4, y:GROUND_ROW * TILE - 28, w:28, h:28,
+    (def.crows || []).forEach(function(c){
+      list.push({ kind:'crow', x:c[0] * TILE + 4, y:c[1] * TILE - 28, w:28, h:28,
         vx:-0.65, vy:0, alive:true, onGround:false, t:Math.random() * 10, dead:0, dir:-1, lastDir:-1 });
     });
-    MAIN_BEES.forEach(function(b){
+    (def.bees || []).forEach(function(b){
       list.push({ kind:'bee', x:b[0] * TILE, y:b[1] * TILE, w:26, h:24,
         vx:0.75, vy:0, alive:true, t:Math.random() * 10, dead:0,
         baseY:b[1] * TILE, homeX:b[0] * TILE, lastDir:1 });
+    });
+    (def.fish || []).forEach(function(f){
+      list.push({ kind:'fish', x:f[0] * TILE, y:f[1] * TILE + 6, w:28, h:18,
+        vx:0.6, vy:0, alive:true, t:Math.random() * 10, dead:0,
+        baseY:f[1] * TILE + 6, homeX:f[0] * TILE, lastDir:1 });
     });
     return list;
   }
@@ -505,9 +659,12 @@
     };
   }
 
-  function buildAreas(){
-    areas = { main: buildMain() };
-    ROOMS.forEach(function(d){ areas[d.id] = buildRoom(d); });
+  function buildAreas(st){
+    var def = STAGE_DEFS[st];
+    areas = { main: buildOutdoor(def) };
+    ROOMS.forEach(function(d){
+      if (def.rooms.indexOf(d.id) >= 0) areas[d.id] = buildRoom(d);
+    });
     TOTAL_FURNS = 0;
     Object.keys(areas).forEach(function(k){ TOTAL_FURNS += areas[k].furns.length; });
   }
@@ -524,7 +681,56 @@
     if (x < 0 || x >= cur.cols) return GROUND;
     return grid[y][x];
   }
-  function isSolid(x, y){ return tileAt(x, y) !== EMPTY; }
+  function isSolid(x, y){
+    var t = tileAt(x, y);
+    return t !== EMPTY && t !== WATER && t !== SLOPE_FILL && !isSlopeT(t);
+  }
+  function isWaterAt(px, py){
+    return tileAt(Math.floor(px / TILE), Math.floor(py / TILE)) === WATER;
+  }
+  function groundTopRow(tx){
+    for (var y = 0; y < ROWS; y++){
+      var t = tileAt(tx, y);
+      if (t === GROUND || t === SLOPE_FILL || isSlopeT(t)) return y;
+    }
+    return ROWS;
+  }
+  /* さかの たかさ（その x での ちめんの y） */
+  function slopeSurfaceY(tx, ty, t, px){
+    var f = clamp((px - tx * TILE) / TILE, 0, 1);
+    var hf = (t === SLOPE_R) ? f : (1 - f);
+    return (ty + 1) * TILE - hf * TILE;
+  }
+  /* さかの うえに のせる */
+  function resolveSlope(e, wasGround){
+    var cx = e.x + e.w / 2, feet = e.y + e.h;
+    var col = Math.floor(cx / TILE), base = Math.floor(feet / TILE);
+    var sy = null, ty, t, tx;
+    for (ty = base - 1; ty <= base + 1; ty++){
+      t = tileAt(col, ty);
+      if (isSlopeT(t)){ sy = slopeSurfaceY(col, ty, t, cx); break; }
+    }
+    if (sy === null) return false;
+    /* ボックスの 下に かたい タイルが あれば、そこより 下には しずまない */
+    var x0 = Math.floor(e.x / TILE), x1 = Math.floor((e.x + e.w - 0.01) / TILE);
+    for (tx = x0; tx <= x1; tx++){
+      for (ty = base - 1; ty <= base + 2; ty++){
+        if (isSolid(tx, ty) && ty * TILE < sy && ty * TILE >= feet - TILE) sy = ty * TILE;
+      }
+    }
+    if (e.vy < -0.01) return false;
+    if ((feet >= sy - 0.5 && feet <= sy + 26) || (wasGround && sy - feet > 0 && sy - feet <= 18)){
+      e.y = sy - e.h; e.vy = 0; e.onGround = true;
+      return true;
+    }
+    return false;
+  }
+  function touchingWall(e, dir){
+    var tx = Math.floor((dir > 0 ? e.x + e.w + 1.5 : e.x - 1.5) / TILE);
+    var y0 = Math.floor((e.y + 4) / TILE), y1 = Math.floor((e.y + e.h - 5) / TILE);
+    for (var ty = y0; ty <= y1; ty++) if (isSolid(tx, ty)) return true;
+    return false;
+  }
   function setTile(x, y, t){ if (x >= 0 && x < cur.cols && y >= 0 && y < ROWS) grid[y][x] = t; }
 
   /* ================= おと ================= */
@@ -555,6 +761,7 @@
 
   /* ================= ゲームの じょうたい ================= */
   var state = 'title';
+  var stage = 1;
   var cam = { x:0 };
   var player, particles, hearts, score, frames, searched, flash, shake, best = null;
   var spawn = { area:'main', x:2 * TILE, y:(GROUND_ROW * TILE) - 46 };
@@ -568,14 +775,18 @@
       inv:0, coyote:0, buffer:0, jumpHeld:false, squash:0, cutable:true,
       swing:0, attackBuf:0, actBuf:0, flapCd:0, flapT:0,
       airJumps:0, dash:0, pound:false, poundT:0,
-      umbrellaOpen:false, poof:0
+      umbrellaOpen:false, poof:0, climb:0, wasWater:false
     };
   }
 
-  function reset(){
-    buildAreas();
+  function reset(st){
+    stage = st || stage || 1;
+    buildAreas(stage);
     useArea('main');
+    var st0 = STAGE_DEFS[stage].start;
     player = makePlayer();
+    player.x = st0[0] * TILE;
+    player.y = st0[1] * TILE - player.h;
     particles = [];
     hearts = 5;
     score = 0;
@@ -584,9 +795,9 @@
     flash = 0;
     shake = 0;
     cam.x = 0;
-    spawn = { area:'main', x:2 * TILE, y:(GROUND_ROW * TILE) - FORMS.girl.h };
+    spawn = { area:'main', x:st0[0] * TILE, y:st0[1] * TILE - FORMS.girl.h };
   }
-  reset();
+  reset(1);
 
   /* ================= そうさ ================= */
   var keys = { left:false, right:false, jump:false, attack:false, act:false };
@@ -597,8 +808,16 @@
       keys[k] = true;
       return;
     }
-    if (state === 'clear' || state === 'over'){
-      if (k === 'jump' || k === 'attack' || k === 'act'){ reset(); state = 'play'; }
+    if (state === 'clear'){
+      if (k === 'jump' || k === 'attack' || k === 'act'){
+        if (stage === 1) startStage(2);
+        else { reset(1); state = 'title'; }
+      }
+      keys[k] = true;
+      return;
+    }
+    if (state === 'over'){
+      if (k === 'jump' || k === 'attack' || k === 'act') startStage(stage);
       keys[k] = true;
       return;
     }
@@ -633,10 +852,10 @@
     var k = keyName(e);
     if (e.repeat){ if (k) e.preventDefault(); return; }
     if (k){ e.preventDefault(); press(k); return; }
-    if (e.code === 'Digit1'){ e.preventDefault(); pickForm('girl'); }
-    else if (e.code === 'Digit2'){ e.preventDefault(); pickForm('cat'); }
+    if (e.code === 'Digit1'){ e.preventDefault(); if (state === 'title') startStage(1); else pickForm('girl'); }
+    else if (e.code === 'Digit2'){ e.preventDefault(); if (state === 'title') startStage(2); else pickForm('cat'); }
     else if (e.code === 'Digit3'){ e.preventDefault(); pickForm('tanu'); }
-    else if (e.code === 'KeyR'){ e.preventDefault(); reset(); state = 'play'; }
+    else if (e.code === 'KeyR'){ e.preventDefault(); startStage(stage); }
     else if (e.code === 'KeyM'){ soundBtn.click(); }
   });
   window.addEventListener('keyup', function(e){
@@ -659,7 +878,13 @@
   window.addEventListener('touchstart', function(){ document.body.classList.add('touch'); },
     { once:true, passive:true });
 
-  function start(){ reset(); state = 'play'; beep(660, 0.1, 'triangle', 0.06); }
+  function startStage(n){
+    reset(n);
+    state = 'play';
+    beep(660, 0.1, 'triangle', 0.06);
+    setTimeout(function(){ beep(880, 0.12, 'triangle', 0.06); }, 90);
+  }
+  function start(){ startStage(1); }
 
   /* ================= へんしん ================= */
   function fits(x, y, w, h){
@@ -711,6 +936,21 @@
       for (ty = y0; ty <= y1; ty++) if (isSolid(tx, ty)){ e.x = (tx + 1) * TILE; e.vx = 0; e.bumped = true; break; }
     }
   }
+  /* よこに すすめない とき、1タイルまでの だんさなら のぼる（さか よう） */
+  function moveXPlayer(e){
+    var want = e.vx;
+    e.bumped = false;
+    moveX(e);
+    if (!e.bumped || want === 0) return;
+    var tx = e.x + want, lift;
+    for (lift = 3; lift <= TILE + 3; lift += 3){
+      if (fits(tx, e.y - lift, e.w, e.h) && fits(e.x, e.y - lift, e.w, e.h)){
+        e.x = tx; e.y -= lift; e.vx = want;
+        return;
+      }
+    }
+  }
+
   function moveY(e, isPlayer){
     e.y += e.vy;
     var x0 = Math.floor(e.x / TILE), x1 = Math.floor((e.x + e.w - 0.01) / TILE), tx, ty;
@@ -871,6 +1111,13 @@
       x:f.x + f.w / 2, y:f.y - 12, vx:0, vy:-0.8, life:66 });
   }
 
+  function splash(x, y){
+    beep(430, 0.08, 'triangle', 0.045);
+    for (var i = 0; i < 12; i++)
+      particles.push({ kind:'drop', x:x + (Math.random() - 0.5) * 26, y:y,
+        vx:(Math.random() - 0.5) * 4.6, vy:-Math.random() * 4.2 - 1, life:26 });
+  }
+
   /* ================= こうしん ================= */
   function update(){
     frames++;
@@ -879,7 +1126,8 @@
     if (cur) cur.coins.forEach(function(c){ c.t += 0.08; });
     particles.forEach(function(pt){
       pt.x += pt.vx; pt.y += pt.vy;
-      if (pt.kind !== 'text') pt.vy += (pt.kind === 'poof' ? 0.02 : 0.28);
+      if (pt.kind === 'bubble') pt.vy -= 0.006;
+      else if (pt.kind !== 'text') pt.vy += (pt.kind === 'poof' ? 0.02 : 0.28);
       pt.life--;
     });
     particles = particles.filter(function(pt){ return pt.life > 0; });
@@ -887,6 +1135,11 @@
     if (state !== 'play') return;
 
     var p = player, f = FORMS[p.form];
+    var cx0 = p.x + p.w / 2;
+    var inWater = isWaterAt(cx0, p.y + p.h * 0.55);
+    var wasGround = p.onGround;
+    var clinging = p.form === 'cat' && !p.onGround && !inWater &&
+      ((keys.right && touchingWall(p, 1)) || (keys.left && touchingWall(p, -1)));
 
     /* よこの うごき */
     if (p.dash > 0){
@@ -911,14 +1164,14 @@
     if (p.flapT > 0) p.flapT--;
     if (p.poundT > 0) p.poundT--;
 
-    if (p.buffer > 0 && p.coyote > 0 && !p.pound){
+    if (p.buffer > 0 && p.coyote > 0 && !p.pound && !inWater){
       p.vy = f.jump; p.coyote = 0; p.buffer = 0; p.jumpHeld = true;
       p.onGround = false; p.squash = 10; p.cutable = true;
       beep(p.form === 'cat' ? 700 : (p.form === 'tanu' ? 380 : 520), 0.12, 'square', 0.05);
       for (var i = 0; i < 5; i++)
         particles.push({ kind:'dust', x:p.x + p.w / 2, y:p.y + p.h,
           vx:(Math.random() - 0.5) * 2.4, vy:-Math.random() * 1.4, life:18 });
-    } else if (p.buffer > 0 && !p.onGround && !p.pound){
+    } else if (p.buffer > 0 && !p.onGround && !p.pound && !inWater && !clinging){
       if (p.form === 'girl' && p.flapCd <= 0){
         /* かさを あおいで とぶ */
         p.vy = Math.max(p.vy - 6.2, -7.2);
@@ -939,12 +1192,39 @@
     if (!keys.jump) p.jumpHeld = false;
     if (p.cutable && !p.jumpHeld && p.vy < -4.0) p.vy = -4.0;
 
-    p.vy += f.grav;
-    if (p.pound && p.vy < 17) p.vy = 17;
-    if (p.vy > f.maxfall && !p.pound) p.vy = f.maxfall;
+    if (inWater){
+      p.vy += f.grav * (p.form === 'tanu' ? 0.42 : 0.26);
+      if (keys.jump) p.vy -= (p.form === 'tanu' ? 0.40 : 0.64);
+      p.vy = clamp(p.vy, p.form === 'tanu' ? -2.2 : -3.4, p.form === 'tanu' ? 3.8 : 2.6);
+      p.vx = clamp(p.vx, -f.maxv * 0.72, f.maxv * 0.72);
+      p.buffer = 0; p.coyote = 0; p.cutable = false; p.pound = false;
+      p.airJumps = (p.form === 'cat') ? 1 : 0;
+      if (frames % 16 === 0)
+        particles.push({ kind:'bubble', x:cx0 + (Math.random() - 0.5) * 14,
+          y:p.y + p.h * 0.4, vx:0, vy:-0.9, life:44 });
+    } else {
+      p.vy += f.grav;
+      if (p.pound && p.vy < 17) p.vy = 17;
+      if (p.vy > f.maxfall && !p.pound) p.vy = f.maxfall;
+    }
+    /* 水から とびだす／はいる */
+    if (!inWater && p.wasWater && keys.jump && p.vy < 0) p.vy = -7.6;
+    if (inWater !== p.wasWater) splash(cx0, p.y + p.h * 0.5);
+    p.wasWater = inWater;
+
+    /* ネコの かべのぼり */
+    if (clinging){
+      var cdir = (keys.right && touchingWall(p, 1)) ? 1 : -1;
+      p.climb = cdir; p.face = cdir;
+      p.vy = keys.jump ? -2.7 : 1.2;
+      p.vx = 0; p.buffer = 0; p.cutable = false; p.airJumps = 1;
+      if (frames % 7 === 0)
+        particles.push({ kind:'dust', x:p.x + (cdir > 0 ? p.w + 3 : -3),
+          y:p.y + p.h * 0.45, vx:0, vy:1.2, life:14 });
+    } else p.climb = 0;
 
     /* おんなのこ：かさを ひらいて ふわふわ */
-    var floating = p.form === 'girl' && !p.onGround && p.vy > 0 && keys.jump && p.swing <= 0;
+    var floating = p.form === 'girl' && !p.onGround && !inWater && p.vy > 0 && keys.jump && p.swing <= 0;
     if (floating && p.vy > 1.8){
       p.vy = 1.8;
       if (frames % 9 === 0)
@@ -982,8 +1262,9 @@
     if (p.actBuf > 0){ p.actBuf--; if (p.actBuf === 7) doAct(); }
     if (p.poof > 0) p.poof--;
 
-    moveX(p);
+    if (p.climb) moveX(p); else moveXPlayer(p);
     moveY(p, true);
+    resolveSlope(p, wasGround);
 
     p.x = clamp(p.x, 0, areaW() - p.w);
     if (p.y < -6){ p.y = -6; if (p.vy < 0) p.vy = 0; }
@@ -1013,12 +1294,17 @@
         moveX(e);
         if (e.bumped) e.dir = -e.dir;
         moveY(e, false);
+        resolveSlope(e, true);
         if (e.onGround){
           var aheadX = Math.floor((e.dir > 0 ? e.x + e.w + 4 : e.x - 4) / TILE);
           var belowY = Math.floor((e.y + e.h + 4) / TILE);
-          if (!isSolid(aheadX, belowY)) e.dir = -e.dir;
+          if (!isSolid(aheadX, belowY) && !isSlopeT(tileAt(aheadX, belowY))) e.dir = -e.dir;
         }
         e.lastDir = e.dir;
+      } else if (e.kind === 'fish'){
+        e.x = e.homeX + Math.sin(e.t * 0.16) * TILE * 2.4;
+        e.y = e.baseY + Math.sin(e.t * 0.33) * 10;
+        e.lastDir = Math.cos(e.t * 0.16) >= 0 ? 1 : -1;
       } else {
         e.x = e.homeX + Math.sin(e.t * 0.22) * TILE * 1.6;
         e.y = e.baseY + Math.sin(e.t * 0.44) * 14;
@@ -1049,7 +1335,7 @@
     cur.checks.forEach(function(c){
       if (!c.on && p.x + p.w > c.x + 6){
         c.on = true;
-        spawn = { area:cur.id, x:c.x - 10, y:(GROUND_ROW * TILE) - p.h };
+        spawn = { area:cur.id, x:c.x - 10, y:(c.baseRow * TILE) - p.h };
         beep(700, 0.1, 'triangle', 0.06);
         setTimeout(function(){ beep(980, 0.14, 'triangle', 0.06); }, 100);
         particles.push({ kind:'text', text:'チェックポイント！', x:c.x + 10, y:c.y - 10, vx:0, vy:-0.7, life:70 });
@@ -1057,7 +1343,7 @@
     });
 
     /* ゴール */
-    if (cur.id === 'main' && p.x + p.w > GOAL_X * TILE + 10 && p.y + p.h > (GROUND_ROW - 4) * TILE){
+    if (cur.id === 'main' && p.x + p.w > cur.goalX * TILE + 10 && p.y + p.h > (cur.goalTop - 4) * TILE){
       state = 'clear';
       if (best === null || frames < best) best = frames;
       melody([[660,0.14],[880,0.14],[1046,0.14],[1320,0.3]]);
@@ -1108,10 +1394,17 @@
     clouds.push({ x:ci * 320 + noise(ci, 3) * 200, y:40 + noise(ci, 7) * 130, s:0.6 + noise(ci, 11) * 0.9 });
 
   function sky(){
+    var river = cur.theme === 'river';
     var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#4fb3e8');
-    g.addColorStop(0.55, '#9adcf5');
-    g.addColorStop(1, '#d8f3ff');
+    if (river){
+      g.addColorStop(0, '#3e96cf');
+      g.addColorStop(0.5, '#93cfe6');
+      g.addColorStop(1, '#ffe2b6');
+    } else {
+      g.addColorStop(0, '#4fb3e8');
+      g.addColorStop(0.55, '#9adcf5');
+      g.addColorStop(1, '#d8f3ff');
+    }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
@@ -1139,7 +1432,7 @@
     });
 
     var hx = cam.x * 0.45, x2, x3;
-    ctx.fillStyle = '#87b9a4';
+    ctx.fillStyle = river ? '#7aa9a0' : '#87b9a4';
     ctx.beginPath();
     ctx.moveTo(0, H);
     for (x2 = 0; x2 <= W; x2 += 20){
@@ -1148,7 +1441,7 @@
     }
     ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
 
-    ctx.fillStyle = '#6da888';
+    ctx.fillStyle = river ? '#5f9a86' : '#6da888';
     ctx.beginPath();
     ctx.moveTo(0, H);
     for (x3 = 0; x3 <= W; x3 += 20){
@@ -1158,10 +1451,11 @@
     ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
   }
 
-  function drawSchool(){
-    var x = SCHOOL_X - cam.x;
+  function drawGoalBuilding(){
+    if (cur.goalKind === 'home') return drawHome();
+    var x = cur.buildingX * TILE - cam.x;
     if (x > W + 40 || x < -520) return;
-    var base = GROUND_ROW * TILE, r, c, r2, c2;
+    var base = cur.goalTop * TILE, r, c, r2, c2;
     ctx.fillStyle = '#f0e2c6';
     rr(x, base - 230, 430, 230, 6);
     ctx.fillStyle = '#d9c39c';
@@ -1184,16 +1478,55 @@
     ctx.beginPath(); ctx.moveTo(x + 215, base - 258); ctx.lineTo(x + 224, base - 255); ctx.stroke();
   }
 
+  function drawHome(){
+    var x = cur.buildingX * TILE - cam.x;
+    if (x > W + 40 || x < -400) return;
+    var base = cur.goalTop * TILE, r, c;
+    ctx.fillStyle = '#f3e6cf';
+    rr(x, base - 170, 300, 170, 6);
+    ctx.fillStyle = '#d4553f';
+    ctx.beginPath();
+    ctx.moveTo(x - 20, base - 168);
+    ctx.lineTo(x + 150, base - 246);
+    ctx.lineTo(x + 320, base - 168);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#b8462f';
+    ctx.fillRect(x - 20, base - 172, 340, 8);
+    /* えんとつ */
+    ctx.fillStyle = '#b07a52';
+    rr(x + 228, base - 250, 30, 48, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    for (c = 0; c < 3; c++){
+      ctx.beginPath();
+      ctx.arc(x + 243 + Math.sin(frames * 0.03 + c) * 12, base - 268 - c * 26, 10 + c * 4, 0, 6.2832);
+      ctx.fill();
+    }
+    /* まど */
+    ctx.fillStyle = '#ffd98a';
+    for (r = 0; r < 2; r++) for (c = 0; c < 3; c++) rr(x + 26 + c * 88, base - 146 + r * 66, 52, 44, 5);
+    ctx.fillStyle = '#b08a5c';
+    for (r = 0; r < 2; r++) for (c = 0; c < 3; c++){
+      ctx.fillRect(x + 26 + c * 88, base - 146 + r * 66 + 20, 52, 4);
+      ctx.fillRect(x + 50 + c * 88, base - 146 + r * 66, 4, 44);
+    }
+    /* げんかん */
+    ctx.fillStyle = '#8a5a33';
+    rr(x + 122, base - 74, 62, 74, 5);
+    ctx.fillStyle = '#ffd35c';
+    ctx.beginPath(); ctx.arc(x + 174, base - 38, 4, 0, 6.2832); ctx.fill();
+  }
+
   var HOUSE_TONES = {
     green:  { wall:'#cfe4c2', trim:'#6fa15c', roof:'#4f7f46' },
     yellow: { wall:'#f5e3b0', trim:'#cfa53f', roof:'#c07b33' },
-    old:    { wall:'#d8cdbc', trim:'#8d7f6c', roof:'#7a6552' }
+    old:    { wall:'#d8cdbc', trim:'#8d7f6c', roof:'#7a6552' },
+    blue:   { wall:'#cfe0ea', trim:'#5f89a5', roof:'#3f6d8c' }
   };
   function drawHouses(){
     (cur.houses || []).forEach(function(hs){
       var x = hs.x * TILE - cam.x;
       if (x > W + 200 || x < -260) return;
-      var tone = HOUSE_TONES[hs.tone], base = GROUND_ROW * TILE, ww = hs.w * TILE;
+      var tone = HOUSE_TONES[hs.tone], base = (hs.top || 12) * TILE, ww = hs.w * TILE;
       ctx.fillStyle = tone.wall;
       rr(x, base - 118, ww, 118, 4);
       ctx.fillStyle = tone.roof;
@@ -1233,9 +1566,9 @@
     var t0 = Math.floor(cam.x / TILE) - 2, t1 = t0 + 30, tx;
     for (tx = t0; tx <= t1; tx++){
       if (tx < 0 || tx >= cur.cols) continue;
-      if (tileAt(tx, GROUND_ROW) !== GROUND) continue;
+      if (tileAt(tx, groundTopRow(tx)) !== GROUND) continue;
       var n = noise(tx, 17);
-      var sx = tx * TILE - cam.x, sy = GROUND_ROW * TILE;
+      var sx = tx * TILE - cam.x, sy = groundTopRow(tx) * TILE;
       if (n > 0.90){
         ctx.fillStyle = '#8a6239';
         ctx.fillRect(sx + 14, sy - 46, 10, 46);
@@ -1307,6 +1640,16 @@
     });
   }
 
+  function tag(text, cx, by){
+    ctx.font = 'bold 12px "M PLUS Rounded 1c", system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var tw = ctx.measureText(text).width + 14;
+    ctx.fillStyle = 'rgba(38,30,22,0.62)';
+    rr(cx - tw / 2, by - 17, tw, 17, 6);
+    ctx.fillStyle = '#fff3d8';
+    ctx.fillText(text, cx, by - 8);
+  }
+
   function drawMarks(){
     (cur.marks || []).forEach(function(mk){
       var mx = mk[1] * TILE - cam.x, my = mk[2] * TILE;
@@ -1328,6 +1671,16 @@
         rr(mx + 2, my + 8, TILE - 4, TILE - 8, 4);
         ctx.fillStyle = '#8a6038';
         ctx.fillRect(mx + 2, my + 18, TILE - 4, 4);
+      } else if (mk[0] === 'climb'){
+        tag('ネコで のぼる', mx + TILE / 2, my + 26);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        for (var cl = 0; cl < 3; cl++){
+          ctx.beginPath();
+          ctx.moveTo(mx + 6 + cl * 4, my + 34);
+          ctx.lineTo(mx + 12 + cl * 4, my + 46);
+          ctx.stroke();
+        }
       } else if (mk[0] === 'brickhint'){
         ctx.fillStyle = 'rgba(255,255,255,0.75)';
         ctx.font = 'bold 12px "M PLUS Rounded 1c", system-ui, sans-serif';
@@ -1386,6 +1739,43 @@
           ctx.fillRect(sx + TILE / 2 - 1, sy + 1, 2.5, TILE / 2 - 2);
           ctx.fillRect(sx + TILE / 4 - 1, sy + TILE / 2, 2.5, TILE / 2 - 2);
           ctx.fillRect(sx + TILE * 0.75 - 1, sy + TILE / 2, 2.5, TILE / 2 - 2);
+        } else if (t === SLOPE_R || t === SLOPE_L){
+          ctx.beginPath();
+          if (t === SLOPE_R){
+            ctx.moveTo(sx, sy + TILE); ctx.lineTo(sx + TILE, sy); ctx.lineTo(sx + TILE, sy + TILE);
+          } else {
+            ctx.moveTo(sx, sy); ctx.lineTo(sx + TILE, sy + TILE); ctx.lineTo(sx, sy + TILE);
+          }
+          ctx.closePath();
+          ctx.fillStyle = '#a9713f';
+          ctx.fill();
+          ctx.save();
+          ctx.clip();
+          ctx.strokeStyle = '#5fb254';
+          ctx.lineWidth = 16;
+          ctx.beginPath();
+          if (t === SLOPE_R){ ctx.moveTo(sx - 2, sy + TILE + 2); ctx.lineTo(sx + TILE + 2, sy - 2); }
+          else { ctx.moveTo(sx - 2, sy - 2); ctx.lineTo(sx + TILE + 2, sy + TILE + 2); }
+          ctx.stroke();
+          ctx.strokeStyle = '#7bcc6b';
+          ctx.lineWidth = 6;
+          ctx.stroke();
+          ctx.fillStyle = '#93602f';
+          for (d = 0; d < 2; d++)
+            ctx.fillRect(sx + 6 + noise(tx, d) * 20, sy + 20 + noise(tx + 5, d) * 12, 5, 4);
+          ctx.restore();
+        } else if (t === SLOPE_FILL){
+          ctx.fillStyle = '#a9713f';
+          ctx.fillRect(sx, sy, TILE, TILE);
+          ctx.fillStyle = '#93602f';
+          for (d = 0; d < 3; d++){
+            var fx = noise(tx * 3 + d, ty * 5 + 1), fy = noise(tx * 7 + d, ty * 11 + 2);
+            ctx.fillRect(sx + 4 + fx * (TILE - 12), sy + 6 + fy * (TILE - 14), 5, 4);
+          }
+          ctx.fillStyle = 'rgba(0,0,0,0.07)';
+          ctx.fillRect(sx, sy, 2, TILE);
+        } else if (t === WATER){
+          /* 水は キャラクターの あとに かさねて かく */
         } else if (t === PLAT){
           ctx.fillStyle = '#c98f4e';
           rr(sx + 1, sy + 1, TILE - 2, TILE - 2, 6);
@@ -1414,6 +1804,62 @@
         }
       }
     }
+  }
+
+  function drawWater(){
+    var t0 = Math.floor(cam.x / TILE) - 1, t1 = t0 + 29, tx, ty;
+    for (tx = t0; tx <= t1; tx++){
+      if (tx < 0 || tx >= cur.cols) continue;
+      for (ty = 0; ty < ROWS; ty++){
+        if (grid[ty][tx] !== WATER) continue;
+        var sx = tx * TILE - cam.x, sy = ty * TILE;
+        var surface = tileAt(tx, ty - 1) !== WATER;
+        ctx.fillStyle = 'rgba(52,146,212,0.44)';
+        if (surface){
+          var w0 = Math.sin(frames * 0.07 + tx * 0.8) * 3.4;
+          var w1 = Math.sin(frames * 0.07 + (tx + 1) * 0.8) * 3.4;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy + 5 + w0);
+          ctx.quadraticCurveTo(sx + TILE / 2, sy - 1 + (w0 + w1) / 2, sx + TILE, sy + 5 + w1);
+          ctx.lineTo(sx + TILE, sy + TILE);
+          ctx.lineTo(sx, sy + TILE);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.beginPath();
+          ctx.moveTo(sx, sy + 4 + w0);
+          ctx.quadraticCurveTo(sx + TILE / 2, sy - 2 + (w0 + w1) / 2, sx + TILE, sy + 4 + w1);
+          ctx.lineTo(sx + TILE, sy + 7 + w1);
+          ctx.quadraticCurveTo(sx + TILE / 2, sy + 1 + (w0 + w1) / 2, sx, sy + 7 + w0);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(sx, sy, TILE, TILE);
+          if ((tx + ty) % 3 === 0){
+            ctx.fillStyle = 'rgba(255,255,255,0.14)';
+            ctx.fillRect(sx + 8, sy + 10 + Math.sin(frames * 0.05 + tx) * 4, 12, 3);
+          }
+        }
+      }
+    }
+  }
+
+  function drawSigns(){
+    (cur.signs || []).forEach(function(sg){
+      var x = sg[0] * TILE - cam.x, base = sg[1] * TILE;
+      if (x < -160 || x > W + 160) return;
+      ctx.fillStyle = '#8a6239';
+      ctx.fillRect(x + 14, base - 40, 7, 40);
+      ctx.font = 'bold 13px "M PLUS Rounded 1c", system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var tw = ctx.measureText(sg[2]).width + 18;
+      ctx.fillStyle = '#e8d3ac';
+      rr(x + 17 - tw / 2, base - 68, tw, 26, 5);
+      ctx.fillStyle = '#6b5334';
+      ctx.fillRect(x + 17 - tw / 2, base - 48, tw, 3);
+      ctx.fillStyle = '#4a3a22';
+      ctx.fillText(sg[2], x + 17, base - 56);
+    });
   }
 
   /* ================= えがく：もの ================= */
@@ -1540,10 +1986,7 @@
       ctx.fillRect(x, d.y, d.w, 5);
       ctx.fillStyle = '#ffd35c';
       ctx.beginPath(); ctx.arc(x + d.w - 8, d.y + d.h / 2, 3.4, 0, 6.2832); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = 'bold 12px "M PLUS Rounded 1c", system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(d.label, x + d.w / 2, d.y - 6);
+      tag(d.label, x + d.w / 2, d.y - 6);
     });
   }
 
@@ -1553,7 +1996,7 @@
       if (sx < -60 || sx > W + 60) return;
       var top = c.y;
       ctx.fillStyle = '#8e8e8e';
-      ctx.fillRect(sx, top, 6, GROUND_ROW * TILE - top);
+      ctx.fillRect(sx, top, 6, c.baseRow * TILE - top);
       ctx.fillStyle = c.on ? '#ff7fae' : '#c9c9c9';
       var wave = c.on ? Math.sin(frames * 0.12) * 4 : 0;
       ctx.beginPath();
@@ -1565,10 +2008,10 @@
   }
 
   function drawGoal(){
-    if (cur.id !== 'main') return;
-    var gx = GOAL_X * TILE - cam.x;
+    if (cur.kind !== 'outdoor') return;
+    var gx = cur.goalX * TILE - cam.x;
     if (gx < -160 || gx > W + 160) return;
-    var base = GROUND_ROW * TILE;
+    var base = cur.goalTop * TILE;
     ctx.fillStyle = '#b9b2a4';
     rr(gx - 6, base - 150, 16, 150, 4);
     rr(gx + 104, base - 150, 16, 150, 4);
@@ -1577,7 +2020,7 @@
     ctx.fillStyle = '#3f5d8a';
     ctx.font = 'bold 20px "M PLUS Rounded 1c", system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('がっこう', gx + 57, base - 158);
+    ctx.fillText(cur.goalLabel, gx + 57, base - 158);
     ctx.fillStyle = '#e94f5a';
     var fw = Math.sin(frames * 0.1) * 5;
     ctx.beginPath();
@@ -1648,6 +2091,40 @@
     ctx.beginPath(); ctx.arc(-7, -2, 3.4, 0, 6.2832); ctx.fill();
     ctx.fillStyle = '#111';
     ctx.beginPath(); ctx.arc(-8, -2, 1.7, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawFish(e){
+    var sx = e.x - cam.x, sy = e.y;
+    if (sx < -60 || sx > W + 60) return;
+    ctx.save();
+    ctx.translate(sx + e.w / 2, sy + e.h / 2);
+    if (!e.alive){ ctx.globalAlpha = Math.max(0, e.dead / 40); ctx.scale(1, 0.35); }
+    ctx.scale(e.lastDir === 1 ? 1 : -1, 1);
+    ctx.rotate(Math.sin(e.t * 0.9) * 0.10);
+    /* しっぽ */
+    ctx.fillStyle = '#e8763c';
+    ctx.beginPath();
+    var tw = Math.sin(e.t * 1.6) * 3;
+    ctx.moveTo(-9, 0);
+    ctx.lineTo(-19, -7 + tw);
+    ctx.lineTo(-19, 7 + tw);
+    ctx.closePath(); ctx.fill();
+    /* からだ */
+    ctx.fillStyle = '#f2874a';
+    ctx.beginPath(); ctx.ellipse(0, 0, 12, 8, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#ffd0ab';
+    ctx.beginPath(); ctx.ellipse(2, 3, 8, 4, 0, 0, 6.2832); ctx.fill();
+    /* ひれ */
+    ctx.fillStyle = '#d9662e';
+    ctx.beginPath();
+    ctx.moveTo(-2, -7); ctx.lineTo(4, -13); ctx.lineTo(6, -6);
+    ctx.closePath(); ctx.fill();
+    /* め */
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(6, -2, 3, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#241a12';
+    ctx.beginPath(); ctx.arc(6.8, -2, 1.5, 0, 6.2832); ctx.fill();
     ctx.restore();
   }
 
@@ -1807,6 +2284,17 @@
 
   function drawCat(p, walk){
     var scratch = p.swing > 0;
+    if (p.climb){
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = 'round';
+      for (var cc = 0; cc < 3; cc++){
+        ctx.beginPath();
+        ctx.moveTo(11 + cc * 3, -22 + cc * 5);
+        ctx.lineTo(18 + cc * 3, -14 + cc * 5);
+        ctx.stroke();
+      }
+    }
     /* しっぽ */
     ctx.strokeStyle = '#e08a2c';
     ctx.lineWidth = 5;
@@ -1995,6 +2483,7 @@
     ctx.beginPath(); ctx.ellipse(0, 1, p.w * 0.6, 4.5, 0, 0, 6.2832); ctx.fill();
     ctx.scale(p.face, 1);
     ctx.scale(1 + sq * 0.16, 1 - sq * 0.16);
+    if (p.climb) ctx.rotate(-0.2);
     ctx.translate(0, -bob);
     if (p.form === 'girl') drawGirl(p, walk, bob);
     else if (p.form === 'cat') drawCat(p, walk);
@@ -2059,6 +2548,17 @@
         ctx.globalAlpha = Math.max(0, pt.life / 22) * 0.85;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(sx, pt.y, 7, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (pt.kind === 'drop'){
+        ctx.globalAlpha = Math.max(0, pt.life / 26);
+        ctx.fillStyle = '#bfe6ff';
+        ctx.beginPath(); ctx.arc(sx, pt.y, 3.4, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (pt.kind === 'bubble'){
+        ctx.globalAlpha = Math.max(0, pt.life / 44) * 0.8;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(sx, pt.y, 4, 0, 6.2832); ctx.stroke();
         ctx.globalAlpha = 1;
       } else if (pt.kind === 'chip'){
         ctx.globalAlpha = Math.max(0, pt.life / 30);
@@ -2206,10 +2706,10 @@
     ctx.fillStyle = '#fff';
     if (cur.kind === 'outdoor'){
       ctx.font = 'bold 13px "M PLUS Rounded 1c", system-ui, sans-serif';
-      ctx.fillText('がっこうまで', W / 2, 24);
+      ctx.fillText('ステージ' + stage + '　' + cur.goalLabel + 'まで', W / 2, 24);
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       rr(px, 38, pw, 6, 3);
-      var prog = clamp(player.x / (GOAL_X * TILE), 0, 1);
+      var prog = clamp(player.x / (cur.goalX * TILE), 0, 1);
       ctx.fillStyle = '#7bdc6b';
       rr(px, 38, pw * prog, 6, 3);
       ctx.fillStyle = '#fff';
@@ -2257,13 +2757,14 @@
 
     if (cur.kind === 'outdoor'){
       sky();
-      drawSchool();
+      drawGoalBuilding();
       drawHouses();
       drawBushes();
     } else {
       drawRoomBg();
     }
     drawTiles();
+    if (cur.kind === 'outdoor') drawSigns();
     if (cur.kind === 'indoor') drawMarks();
     drawDoors();
     drawFurns();
@@ -2272,14 +2773,17 @@
     drawCoins();
     cur.enemies.forEach(function(e){
       if (!e.alive && e.dead <= 0) return;
-      if (e.kind === 'crow') drawCrow(e); else drawBee(e);
+      if (e.kind === 'crow') drawCrow(e);
+      else if (e.kind === 'fish') drawFish(e);
+      else drawBee(e);
     });
     if (state !== 'over'){
       drawPoundWave(player);
       drawPlayer(player);
       drawSwingArc(player);
-      drawHint();
     }
+    drawWater();
+    if (state !== 'over') drawHint();
     drawParticles();
     ctx.restore();
 
@@ -2295,19 +2799,21 @@
 
     if (state === 'title'){
       panel('にねんせいの だいぼうけん', [
-        'きょうは かさを もって、がっこうまで ひとりで いく日。',
         '← → で あるいて、スペースで ジャンプ、K で こうげき。',
-        'C で へんしん！ ネコは はやくて 2かい ジャンプ、',
-        'タヌキは たいあたりと ヒップドロップで レンガを こわせる。',
-        'みちの おうちの ドアの まえで E を おすと 中に はいれるよ。'
-      ], 'スペースキー（または ジャンプ）で スタート', '#e07a3c');
+        'C で へんしん！ ネコは 2かいジャンプと かべのぼり、',
+        'タヌキは たいあたりと ヒップドロップで レンガを こわす。',
+        'おうちの ドアの まえで E を おすと 中を たんけんできる。',
+        '',
+        'ステージ1：がっこうへの みち　　ステージ2：かわを わたって おうちへ'
+      ], 'スペース で ステージ1 ／ 2キー で ステージ2', '#e07a3c');
     } else if (state === 'clear'){
-      panel('がっこうに ついた！', [
+      panel(stage === 1 ? 'がっこうに ついた！' : 'おうちに ついた！ おしまい！', [
         'ハナマル：' + score + 'こ',
         'しらべた ばしょ：' + searched + ' / ' + TOTAL_FURNS,
         'タイム：' + timeText(frames),
-        'のこりハート：' + hearts + ' / 5' + (best !== null && best === frames ? '　（さいこうきろく！）' : '')
-      ], 'スペースキーで もういちど あそぶ', '#3fa860');
+        'のこりハート：' + hearts + ' / 5'
+      ], stage === 1 ? 'スペースキーで ステージ2「かわを わたって おうちへ」' : 'スペースキーで さいしょから',
+         '#3fa860');
     } else if (state === 'over'){
       panel('おっとっと！', [
         'ハート が なくなっちゃった。',
