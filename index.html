@@ -191,13 +191,16 @@
     <span class="chip"><kbd>K</kbd> こうげき</span>
     <span class="chip"><kbd>E</kbd> しらべる・ドアに はいる</span>
     <span class="chip"><kbd>C</kbd> へんしん（<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>で えらぶ）</span>
+    <span class="chip">そらで <kbd>スペース</kbd> おしっぱなし＝スカートで とぶ</span>
     <span class="chip">水の中では <kbd>スペース</kbd> おしっぱなしで すすむ</span>
     <span class="chip"><kbd>R</kbd> やりなおし</span>
     <button class="sound" id="sound" type="button">おと：オン</button>
   </div>
 
   <footer>
-    <b>おんなのこ</b>：かさを ふって てきを たおす。おちるとき <kbd>スペース</kbd> おしっぱなしで ふわふわ、れんだで とぶ。<br>
+    <b>おんなのこ</b>：かさを ふって てきを たおす。そらに いるときは <b>スカートが ふわっと ひろがって</b> ゆっくり おちるよ。
+    そらで <kbd>スペース</kbd> を <b>おしっぱなし</b>にすると スカートで <b>じどうで とべる</b>（れんだ しなくて いいよ）。
+    おちながら <kbd>E</kbd> を おすと かさも ひらいて もっと ゆっくり おちる。<br>
     <b>ネコ</b>：はやく はしれて 2かい ジャンプできる。からだが 小さいので <b>ネコしか とおれない あな</b>を とおれる。
     かべに むかって あるくと <b>かべに つかまって、スペースで のぼれる</b>よ。<br>
     <b>タヌキ</b>：じめんで こうげきすると たいあたり、そらで こうげきすると <b>ヒップドロップ</b>。<b>レンガを こわせる</b>。<br>
@@ -775,7 +778,8 @@
       inv:0, coyote:0, buffer:0, jumpHeld:false, squash:0, cutable:true,
       swing:0, attackBuf:0, actBuf:0, flapCd:0, flapT:0,
       airJumps:0, dash:0, pound:false, poundT:0,
-      umbrellaOpen:false, poof:0, climb:0, wasWater:false
+      umbrellaOpen:false, poof:0, climb:0, wasWater:false,
+      skirt:0, flying:false
     };
   }
 
@@ -910,6 +914,7 @@
     }
     p.form = name; p.w = f.w; p.h = f.h; p.x = nx; p.y = ny;
     p.swing = 0; p.dash = 0; p.pound = false; p.umbrellaOpen = false;
+    p.flying = false; p.skirt = 0;
     p.airJumps = (name === 'cat' && !p.onGround) ? 1 : 0;
     p.poof = 16;
     for (var i = 0; i < 14; i++)
@@ -937,6 +942,16 @@
     }
   }
   /* よこに すすめない とき、1タイルまでの だんさなら のぼる（さか よう） */
+  /* おんなのこ：スカートを ふくらませて ひとあおぎ とぶ */
+  function skirtFlap(p){
+    p.vy = Math.max(p.vy - 6.2, -7.2);
+    p.flapCd = 9; p.flapT = 16; p.jumpHeld = true; p.cutable = false;
+    p.flying = true; p.skirt = 1;
+    beep(760, 0.07, 'triangle', 0.04);
+    particles.push({ kind:'dust', x:p.x + p.w / 2 - p.face * 8, y:p.y + p.h - 8,
+      vx:-p.face * 1.4, vy:1.2, life:16 });
+  }
+
   function moveXPlayer(e){
     var want = e.vx;
     e.bumped = false;
@@ -1173,12 +1188,9 @@
           vx:(Math.random() - 0.5) * 2.4, vy:-Math.random() * 1.4, life:18 });
     } else if (p.buffer > 0 && !p.onGround && !p.pound && !inWater && !clinging){
       if (p.form === 'girl' && p.flapCd <= 0){
-        /* かさを あおいで とぶ */
-        p.vy = Math.max(p.vy - 6.2, -7.2);
-        p.buffer = 0; p.flapCd = 9; p.flapT = 16; p.jumpHeld = true; p.cutable = false;
-        beep(760, 0.07, 'triangle', 0.04);
-        particles.push({ kind:'dust', x:p.x + p.w / 2 - p.face * 8, y:p.y + p.h - 8,
-          vx:-p.face * 1.4, vy:1.2, life:16 });
+        /* スカートを ふくらませて とぶ */
+        skirtFlap(p);
+        p.buffer = 0;
       } else if (p.form === 'cat' && p.airJumps > 0){
         /* ネコの 2かい ジャンプ */
         p.airJumps--; p.vy = -10.9; p.buffer = 0; p.jumpHeld = true; p.cutable = true;
@@ -1189,6 +1201,15 @@
             vx:(Math.random() - 0.5) * 3.4, vy:Math.random() * 1.4, life:18 });
       }
     }
+    /* おんなのこ：そらで スペースを おしっぱなしに していれば、
+       スカートが ふくらんで じどうで とびつづける（れんだ しなくて いい） */
+    if (p.form === 'girl' && keys.jump && !p.onGround && !p.pound && !inWater &&
+        !clinging && p.flapCd <= 0 && p.vy > -1.5){
+      skirtFlap(p);
+      p.buffer = 0;
+    }
+    if (p.onGround || inWater || !keys.jump) p.flying = false;
+
     if (!keys.jump) p.jumpHeld = false;
     if (p.cutable && !p.jumpHeld && p.vy < -4.0) p.vy = -4.0;
 
@@ -1223,15 +1244,26 @@
           y:p.y + p.h * 0.45, vx:0, vy:1.2, life:14 });
     } else p.climb = 0;
 
-    /* おんなのこ：かさを ひらいて ふわふわ */
-    var floating = p.form === 'girl' && !p.onGround && !inWater && p.vy > 0 && keys.jump && p.swing <= 0;
-    if (floating && p.vy > 1.8){
+    /* おんなのこ：スカートが じどうで ひろがって ふわふわ おちる。
+       ボタンを おせば かさも ひらいて もっと ゆっくり */
+    var girlAir = p.form === 'girl' && !p.onGround && !inWater && !clinging && p.swing <= 0;
+    /* E（↓）を おしていると かさも ひらいて もっと ゆっくり */
+    var umb = girlAir && keys.act && p.vy > 0;
+    if (umb && p.vy > 1.8){
       p.vy = 1.8;
       if (frames % 9 === 0)
         particles.push({ kind:'dust', x:p.x + p.w / 2 + (Math.random() - 0.5) * 20, y:p.y + 6,
           vx:0, vy:-0.5, life:14 });
+    } else if (girlAir && p.vy > 3.6){
+      p.vy = 3.6;
+      if (frames % 11 === 0)
+        particles.push({ kind:'dust', x:p.x + p.w / 2 + (Math.random() - 0.5) * 24, y:p.y + p.h - 12,
+          vx:0, vy:-0.4, life:12 });
     }
-    p.umbrellaOpen = p.form === 'girl' && (floating || p.flapT > 0) && p.swing <= 0;
+    p.umbrellaOpen = umb;
+    var skirtTarget = (girlAir && (p.vy > 0.4 || p.flapT > 0)) ? 1 : 0;
+    p.skirt += (skirtTarget - p.skirt) * 0.25;
+    if (p.skirt < 0.01) p.skirt = 0;
 
     /* こうげき */
     if (p.attackBuf > 0) p.attackBuf--;
@@ -2155,6 +2187,48 @@
   }
 
   var UMB_R = 28;
+  /* スカート：puff 0 = ふつう、1 = そらで まんまるに ふくらむ */
+  function drawSkirt(puff, flapping){
+    var wob = puff > 0.02 ? Math.sin(frames * 0.22) * 1.4 * puff : 0;
+    var hw = 14 + 8.5 * puff + wob;         /* すその はば */
+    var hy = -10 - 1.5 * puff;              /* すその たかさ（あしが 見えるように 上げる） */
+    var bulge = 7 * puff;                   /* よこへの ふくらみ */
+    ctx.fillStyle = '#e8556d';
+    ctx.beginPath();
+    ctx.moveTo(-9.5, -23);
+    ctx.lineTo(9.5, -23);
+    ctx.bezierCurveTo(12 + bulge, -21, hw, hy - 5, hw, hy);
+    ctx.lineTo(-hw, hy);
+    ctx.bezierCurveTo(-hw, hy - 5, -(12 + bulge), -21, -9.5, -23);
+    ctx.closePath(); ctx.fill();
+    if (puff > 0.05){
+      /* すその フリル */
+      var n = 6, i, fx, fr = (hw * 2) / n * 0.5;
+      ctx.fillStyle = '#f2748a';
+      for (i = 0; i < n; i++){
+        fx = -hw + (hw * 2) * (i + 0.5) / n;
+        ctx.beginPath();
+        ctx.moveTo(fx - fr, hy);
+        ctx.arc(fx, hy, fr, 0, Math.PI);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = 'rgba(160,45,70,.35)';
+    ctx.fillRect(-5 - bulge * 0.35, -22, 1.6, 12 + 3 * puff);
+    ctx.fillRect(3.4 + bulge * 0.35, -22, 1.6, 12 + 3 * puff);
+    if (flapping){
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      for (var k = -1; k <= 1; k += 2){
+        ctx.beginPath();
+        ctx.moveTo(k * (hw + 3), hy - 4);
+        ctx.lineTo(k * (hw + 9), hy + 3);
+        ctx.stroke();
+      }
+    }
+  }
+
   function umbrellaPath(R){
     ctx.beginPath();
     ctx.arc(0, 0, R, Math.PI, 0, false);
@@ -2219,15 +2293,8 @@
     ctx.fillStyle = '#e8556d';
     rr(-10 - walk * 0.5, -4, 10, 5, 2.5);
     rr(0 + walk * 0.5, -4, 10, 5, 2.5);
-    /* スカート */
-    ctx.fillStyle = '#e8556d';
-    ctx.beginPath();
-    ctx.moveTo(-9.5, -23); ctx.lineTo(9.5, -23);
-    ctx.lineTo(14, -10); ctx.lineTo(-14, -10);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(160,45,70,.35)';
-    ctx.fillRect(-5, -22, 1.6, 12);
-    ctx.fillRect(3.4, -22, 1.6, 12);
+    /* スカート（そらでは ふくらんで パラシュートに なる） */
+    drawSkirt(p.skirt || 0, p.flapT > 0);
     /* ブラウス */
     ctx.fillStyle = '#fdfdfb';
     rr(-9, -34, 18, 13, 4);
@@ -2278,7 +2345,7 @@
       var t = 1 - (p.swing / 22);
       drawUmbrellaClosed(-2.1 + Math.min(1, t * 1.7) * 2.9);
     } else {
-      drawUmbrellaClosed(-0.22 + (p.onGround ? walk * 0.012 : -0.12));
+      drawUmbrellaClosed(p.onGround ? -0.22 + walk * 0.012 : 0.40 + (p.skirt || 0) * 0.22);
     }
   }
 
@@ -2800,6 +2867,7 @@
     if (state === 'title'){
       panel('にねんせいの だいぼうけん', [
         '← → で あるいて、スペースで ジャンプ、K で こうげき。',
+        'そらで スペースを おしっぱなし → スカートで じどうに とべる！',
         'C で へんしん！ ネコは 2かいジャンプと かべのぼり、',
         'タヌキは たいあたりと ヒップドロップで レンガを こわす。',
         'おうちの ドアの まえで E を おすと 中を たんけんできる。',
